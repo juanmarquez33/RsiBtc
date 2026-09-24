@@ -37,7 +37,7 @@ def calculate_rsi(df, window=14):
     return df
 
 def get_all_tickers():
-    """Obtiene dinámicamente el S&P 500 y añade las 5 principales criptos."""
+    """Obtiene el S&P 500, criptos y las acciones adicionales solicitadas."""
     tickers = []
     
     # 1. Obtener S&P 500 desde Wikipedia
@@ -50,10 +50,27 @@ def get_all_tickers():
         print(f"Error obteniendo S&P 500: {e}")
         tickers = ['AAPL', 'MSFT', 'AMZN', 'GOOGL', 'NVDA', 'META', 'TSLA']
 
-    # 2. Agregar Top 5 Criptomonedas
+    # 2. Top 5 Criptomonedas
     crypto_tickers = ['BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD']
     
-    return list(set(tickers + crypto_tickers))
+    # 3. Acciones adicionales personalizadas (incluyendo MercadoLibre y Nubank)
+    custom_tickers = [
+        'UBER',  # Uber
+        'BAC',   # Bank of America
+        'MU',    # Micron Technology
+        'V',     # Visa
+        'MA',    # Mastercard
+        'UNH',   # UnitedHealth Group
+        'LLY',   # Eli Lilly
+        'AVGO',  # Broadcom
+        'MCD',   # McDonald's
+        'KO',    # Coca-Cola
+        'MELI',  # MercadoLibre
+        'NU'     # Nubank
+    ]
+    
+    # Combinar todo sin repetir símbolos
+    return list(set(tickers + crypto_tickers + custom_tickers))
 
 def process_timeframe(tickers, tf, interval, period):
     """Procesa el mercado para una temporalidad específica y retorna el Top 10."""
