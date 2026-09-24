@@ -53,7 +53,7 @@ def get_all_tickers():
     # 2. Top 5 Criptomonedas
     crypto_tickers = ['BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD']
     
-    # 3. Acciones adicionales personalizadas (incluyendo TSM, BRK-B y ASML)
+    # 3. Acciones adicionales personalizadas
     custom_tickers = [
         'UBER',   # Uber
         'BAC',    # Bank of America
@@ -67,7 +67,7 @@ def get_all_tickers():
         'KO',     # Coca-Cola
         'MELI',   # MercadoLibre
         'NU',     # Nubank
-        'TSM',    # Taiwan Semiconductor Manufacturing
+        'TSM',    # Taiwan Semiconductor
         'BRK-B',  # Berkshire Hathaway
         'ASML'    # ASML Holding
     ]
@@ -113,9 +113,9 @@ def process_timeframe(tickers, tf, interval, period):
     return resultados_ordenados[:10]
 
 def scan_market():
-    """Ejecuta el escaneo para temporalidad Diaria (1D) y de 1 Hora (1H)."""
+    """Ejecuta el escaneo para temporalidad Diaria (1D), 1 Hora (1H) y Semanal (1W)."""
     tickers = get_all_tickers()
-    print(f"Iniciando escaneo de {len(tickers)} activos...")
+    print(f"Iniciando escaneo completo de {len(tickers)} activos...")
 
     # 1. Escaneo Diario (1D)
     top_1d = process_timeframe(tickers, '1D', interval='1d', period='60d')
@@ -141,7 +141,19 @@ def scan_market():
             )
         send_telegram_message(msg_1h)
 
-    print("Escaneo completo de 1D y 1H finalizado y enviado.")
+    # 3. Escaneo Semanal (1W)
+    top_1w = process_timeframe(tickers, '1W', interval='1wk', period='2y')
+    if top_1w:
+        msg_1w = "📅 *TOP 10 ACTIVOS CON RSI MÁS BAJO (Semanal - 1W)* 📅\n\n"
+        for i, item in enumerate(top_1w, 1):
+            msg_1w += (
+                f"*{i}. `{item['ticker']}`*\n"
+                f"   💵 Precio: `${item['price']:,.2f}`\n"
+                f"   📉 RSI: `{item['rsi']:.1f}`\n\n"
+            )
+        send_telegram_message(msg_1w)
+
+    print("Escaneo completo de 1D, 1H y 1W finalizado y enviado.")
 
 if __name__ == "__main__":
     scan_market()
