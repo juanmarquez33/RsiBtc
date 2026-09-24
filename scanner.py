@@ -53,20 +53,23 @@ def get_all_tickers():
     # 2. Top 5 Criptomonedas
     crypto_tickers = ['BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD']
     
-    # 3. Acciones adicionales personalizadas (incluyendo MercadoLibre y Nubank)
+    # 3. Acciones adicionales personalizadas (incluyendo TSM, BRK-B y ASML)
     custom_tickers = [
-        'UBER',  # Uber
-        'BAC',   # Bank of America
-        'MU',    # Micron Technology
-        'V',     # Visa
-        'MA',    # Mastercard
-        'UNH',   # UnitedHealth Group
-        'LLY',   # Eli Lilly
-        'AVGO',  # Broadcom
-        'MCD',   # McDonald's
-        'KO',    # Coca-Cola
-        'MELI',  # MercadoLibre
-        'NU'     # Nubank
+        'UBER',   # Uber
+        'BAC',    # Bank of America
+        'MU',     # Micron Technology
+        'V',      # Visa
+        'MA',     # Mastercard
+        'UNH',    # UnitedHealth Group
+        'LLY',    # Eli Lilly
+        'AVGO',   # Broadcom
+        'MCD',    # McDonald's
+        'KO',     # Coca-Cola
+        'MELI',   # MercadoLibre
+        'NU',     # Nubank
+        'TSM',    # Taiwan Semiconductor Manufacturing
+        'BRK-B',  # Berkshire Hathaway
+        'ASML'    # ASML Holding
     ]
     
     # Combinar todo sin repetir símbolos
