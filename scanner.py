@@ -24,7 +24,7 @@ def send_telegram_message(message):
         pass
 
 def calculate_indicators(df, window=14):
-    """Calcula el RSI (Wilder) y la EMA de 21 periodos."""
+    """Calcula el RSI (Wilder), la EMA de 21 y el promedio de volumen."""
     # 1. RSI (Wilder)
     delta = df['Close'].diff()
     gain = delta.where(delta > 0, 0.0)
@@ -82,7 +82,7 @@ def get_all_tickers():
     
     return list(set(tickers + crypto_tickers + custom_tickers))
 
-def process_timeframe(tickers, tf, interval, period):
+def process_rsi_timeframe(tickers, tf, interval, period):
     """Procesa el mercado para una temporalidad específica y retorna el Top 10 de RSI."""
     print(f"Escaneando temporalidad RSI {tf}...")
     resultados = []
@@ -118,14 +118,14 @@ def process_timeframe(tickers, tf, interval, period):
     resultados_ordenados = sorted(resultados, key=lambda x: x['rsi'])
     return resultados_ordenados[:10]
 
-def check_ema_breakouts(tickers):
-    """Detecta activos que rompen la EMA de 21 al alza con buen volumen en gráfico diario (1D)."""
-    print("Escaneando rupturas de EMA 21 con volumen...")
+def check_ema_breakouts(tickers, tf_label, interval, period):
+    """Detecta activos que rompen la EMA de 21 al alza con buen volumen."""
+    print(f"Escaneando rupturas de EMA 21 con volumen ({tf_label})...")
     breakouts = []
 
     for ticker in tickers:
         try:
-            df = yf.download(ticker, interval='1d', period='60d', progress=False)
+            df = yf.download(ticker, interval=interval, period=period, progress=False)
             if df.empty:
                 continue
             if isinstance(df.columns, pd.MultiIndex):
@@ -135,7 +135,6 @@ def check_ema_breakouts(tickers):
             if len(df) < 25:
                 continue
 
-            # Datos vela anterior y vela actual
             prev_close = float(df['Close'].iloc[-2])
             prev_ema = float(df['EMA21'].iloc[-2])
             
@@ -144,7 +143,7 @@ def check_ema_breakouts(tickers):
             curr_vol = float(df['Volume'].iloc[-1])
             avg_vol = float(df['Vol_SMA20'].iloc[-1])
 
-            # Condición de ruptura alcista: Estaba debajo/igual y cruzó arriba + Volumen mayor al promedio
+            # Condición de ruptura alcista + volumen superior a la media
             if prev_close <= prev_ema and curr_close > curr_ema and curr_vol > avg_vol:
                 vol_increase = ((curr_vol / avg_vol) - 1) * 100
                 breakouts.append({
@@ -156,9 +155,8 @@ def check_ema_breakouts(tickers):
         except Exception:
             pass
 
-    # Si hay rupturas, enviamos un alerta especial
     if breakouts:
-        msg = "🚀 *¡ALERTA DE RUPTURA EMA 21 CON VOLUMEN!* 🚀\n\n"
+        msg = f"🚀 *¡ALERTA DE RUPTURA EMA 21 ({tf_label})!* 🚀\n\n"
         for item in breakouts:
             msg += (
                 f"🔥 *`{item['ticker']}`*\n"
@@ -167,17 +165,17 @@ def check_ema_breakouts(tickers):
                 f"   📊 Vol: `+{item['vol_inc']:.1f}%` sobre la media\n\n"
             )
         send_telegram_message(msg)
-        print("Alertas de ruptura enviadas.")
+        print(f"Alertas de ruptura ({tf_label}) enviadas.")
     else:
-        print("No se registraron rupturas de EMA 21 con volumen en esta ejecución.")
+        print(f"No se registraron rupturas de EMA 21 con volumen ({tf_label}).")
 
 def scan_market():
-    """Ejecuta todo el flujo del bot."""
+    """Ejecuta todo el flujo del bot en orden."""
     tickers = get_all_tickers()
     print(f"Iniciando escaneo completo de {len(tickers)} activos...")
 
     # 1. Escaneo Semanal (1W) RSI
-    top_1w = process_timeframe(tickers, '1W', interval='1wk', period='2y')
+    top_1w = process_rsi_timeframe(tickers, '1W', interval='1wk', period='2y')
     if top_1w:
         msg_1w = "📅 *TOP 10 ACTIVOS CON RSI MÁS BAJO (Semanal - 1W)* 📅\n\n"
         for i, item in enumerate(top_1w, 1):
@@ -185,7 +183,7 @@ def scan_market():
         send_telegram_message(msg_1w)
 
     # 2. Escaneo Diario (1D) RSI
-    top_1d = process_timeframe(tickers, '1D', interval='1d', period='60d')
+    top_1d = process_rsi_timeframe(tickers, '1D', interval='1d', period='60d')
     if top_1d:
         msg_1d = "📉 *TOP 10 ACTIVOS CON RSI MÁS BAJO (Diario - 1D)* 📉\n\n"
         for i, item in enumerate(top_1d, 1):
@@ -193,15 +191,16 @@ def scan_market():
         send_telegram_message(msg_1d)
 
     # 3. Escaneo de 1 Hora (1H) RSI
-    top_1h = process_timeframe(tickers, '1H', interval='60m', period='30d')
+    top_1h = process_rsi_timeframe(tickers, '1H', interval='60m', period='30d')
     if top_1h:
         msg_1h = "⏱ *TOP 10 ACTIVOS CON RSI MÁS BAJO (1 Hora - 1H)* ⏱\n\n"
         for i, item in enumerate(top_1h, 1):
             msg_1h += f"*{i}. `{item['ticker']}`*\n   💵 Precio: `${item['price']:,.2f}`\n   📉 RSI: `{item['rsi']:.1f}`\n\n"
         send_telegram_message(msg_1h)
 
-    # 4. Chequear Rupturas de EMA 21 con Volumen (Diario)
-    check_ema_breakouts(tickers)
+    # 4. Alertas de Ruptura EMA 21 con Volumen (Diario y 1 Hora)
+    check_ema_breakouts(tickers, tf_label="Diario - 1D", interval='1d', period='60d')
+    check_ema_breakouts(tickers, tf_label="1 Hora - 1H", interval='60m', period='30d')
 
     print("Ciclo completo del bot finalizado.")
 
