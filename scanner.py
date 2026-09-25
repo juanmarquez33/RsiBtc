@@ -45,7 +45,7 @@ def calculate_indicators(df, window=14):
     return df
 
 def get_all_tickers():
-    """Obtiene el S&P 500, criptos y las acciones adicionales solicitadas."""
+    """Obtiene el S&P 500, criptos, PAXG (Oro cripto) y las acciones adicionales solicitadas."""
     tickers = []
     
     # 1. Obtener S&P 500 desde Wikipedia
@@ -58,8 +58,11 @@ def get_all_tickers():
         print(f"Error obteniendo S&P 500: {e}")
         tickers = ['AAPL', 'MSFT', 'AMZN', 'GOOGL', 'NVDA', 'META', 'TSLA']
 
-    # 2. Top 5 Criptomonedas
-    crypto_tickers = ['BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD']
+    # 2. Top Criptomonedas + PAXG (Oro tokenizado)
+    crypto_and_commodities = [
+        'BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD',
+        'PAXG-USD'  # PAX Gold (Oro tokenizado con par en USD/USDT)
+    ]
     
     # 3. Acciones adicionales personalizadas
     custom_tickers = [
@@ -80,7 +83,7 @@ def get_all_tickers():
         'ASML'    # ASML Holding
     ]
     
-    return list(set(tickers + crypto_tickers + custom_tickers))
+    return list(set(tickers + crypto_and_commodities + custom_tickers))
 
 def process_rsi_timeframe(tickers, tf, interval, period):
     """Procesa el mercado para una temporalidad específica y retorna el Top 10 de RSI."""
