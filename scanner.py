@@ -24,7 +24,7 @@ def send_telegram_message(message):
         pass
 
 def calculate_indicators(df, window=14):
-    """Calcula el RSI (Wilder), la EMA de 21 y el promedio de volumen."""
+    """Calcula el RSI (Wilder), EMA 21, Volumen, Soportes y Bandas de Bollinger."""
     # 1. RSI (Wilder)
     delta = df['Close'].diff()
     gain = delta.where(delta > 0, 0.0)
@@ -36,16 +36,24 @@ def calculate_indicators(df, window=14):
     rs = avg_gain / avg_loss
     df['RSI'] = 100 - (100 / (1 + rs))
     
-    # 2. EMA 21
+    # 2. EMA de 21 periodos
     df['EMA21'] = df['Close'].ewm(span=21, adjust=False).mean()
     
     # 3. Promedio de Volumen (20 periodos)
     df['Vol_SMA20'] = df['Volume'].rolling(window=20).mean()
     
+    # 4. Soporte basado en mínimos recientes (mínimo de las últimas 10 velas)
+    df['Support'] = df['Low'].rolling(window=10).min()
+    
+    # 5. Bandas de Bollinger (complemento técnico)
+    sma20 = df['Close'].rolling(window=20).mean()
+    std20 = df['Close'].rolling(window=20).std()
+    df['Lower_Bollinger'] = sma20 - (2 * std20)
+    
     return df
 
 def get_all_tickers():
-    """Obtiene el S&P 500, criptos, PAXG (Oro cripto) y las acciones adicionales solicitadas."""
+    """Obtiene el S&P 500, criptos, PAXG y las acciones adicionales solicitadas."""
     tickers = []
     
     # 1. Obtener S&P 500 desde Wikipedia
@@ -58,10 +66,10 @@ def get_all_tickers():
         print(f"Error obteniendo S&P 500: {e}")
         tickers = ['AAPL', 'MSFT', 'AMZN', 'GOOGL', 'NVDA', 'META', 'TSLA']
 
-    # 2. Top Criptomonedas + PAXG (Oro tokenizado)
+    # 2. Criptomonedas, PAXG (Oro tokenizado)
     crypto_and_commodities = [
         'BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD',
-        'PAXG-USD'  # PAX Gold (Oro tokenizado con par en USD/USDT)
+        'PAXG-USD'  # PAX Gold (Oro tokenizado)
     ]
     
     # 3. Acciones adicionales personalizadas
@@ -86,7 +94,7 @@ def get_all_tickers():
     return list(set(tickers + crypto_and_commodities + custom_tickers))
 
 def process_rsi_timeframe(tickers, tf, interval, period):
-    """Procesa el mercado para una temporalidad específica y retorna el Top 10 de RSI."""
+    """Procesa el mercado para una temporalidad específica y retorna el Top 10 de RSI con zona de soporte."""
     print(f"Escaneando temporalidad RSI {tf}...")
     resultados = []
 
@@ -105,12 +113,20 @@ def process_rsi_timeframe(tickers, tf, interval, period):
             last = df.iloc[-1]
             price = float(last['Close'])
             rsi = float(last['RSI'])
+            support_level = float(last['Support']) if pd.notna(last['Support']) else price * 0.95
+
+            # La zona de compra toma como referencia principal el soporte de mínimos recientes,
+            # validando que esté por debajo o muy cerca del precio actual.
+            buy_zone = min(support_level, price * 0.98)
+            if buy_zone >= price:
+                buy_zone = price * 0.96
 
             if pd.notna(rsi):
                 resultados.append({
                     'ticker': ticker,
                     'price': price,
-                    'rsi': rsi
+                    'rsi': rsi,
+                    'buy_zone': buy_zone
                 })
         except Exception:
             pass
@@ -146,7 +162,6 @@ def check_ema_breakouts(tickers, tf_label, interval, period):
             curr_vol = float(df['Volume'].iloc[-1])
             avg_vol = float(df['Vol_SMA20'].iloc[-1])
 
-            # Condición de ruptura alcista + volumen superior a la media
             if prev_close <= prev_ema and curr_close > curr_ema and curr_vol > avg_vol:
                 vol_increase = ((curr_vol / avg_vol) - 1) * 100
                 breakouts.append({
@@ -182,7 +197,12 @@ def scan_market():
     if top_1w:
         msg_1w = "📅 *TOP 10 ACTIVOS CON RSI MÁS BAJO (Semanal - 1W)* 📅\n\n"
         for i, item in enumerate(top_1w, 1):
-            msg_1w += f"*{i}. `{item['ticker']}`*\n   💵 Precio: `${item['price']:,.2f}`\n   📉 RSI: `{item['rsi']:.1f}`\n\n"
+            msg_1w += (
+                f"*{i}. `{item['ticker']}`*\n"
+                f"   💵 Precio: `${item['price']:,.2f}`\n"
+                f"   📉 RSI: `{item['rsi']:.1f}`\n"
+                f"   🛡 Soporte / Zona Compra: `~${item['buy_zone']:,.2f}`\n\n"
+            )
         send_telegram_message(msg_1w)
 
     # 2. Escaneo Diario (1D) RSI
@@ -190,7 +210,12 @@ def scan_market():
     if top_1d:
         msg_1d = "📉 *TOP 10 ACTIVOS CON RSI MÁS BAJO (Diario - 1D)* 📉\n\n"
         for i, item in enumerate(top_1d, 1):
-            msg_1d += f"*{i}. `{item['ticker']}`*\n   💵 Precio: `${item['price']:,.2f}`\n   📉 RSI: `{item['rsi']:.1f}`\n\n"
+            msg_1d += (
+                f"*{i}. `{item['ticker']}`*\n"
+                f"   💵 Precio: `${item['price']:,.2f}`\n"
+                f"   📉 RSI: `{item['rsi']:.1f}`\n"
+                f"   🛡 Soporte / Zona Compra: `~${item['buy_zone']:,.2f}`\n\n"
+            )
         send_telegram_message(msg_1d)
 
     # 3. Escaneo de 1 Hora (1H) RSI
@@ -198,7 +223,12 @@ def scan_market():
     if top_1h:
         msg_1h = "⏱ *TOP 10 ACTIVOS CON RSI MÁS BAJO (1 Hora - 1H)* ⏱\n\n"
         for i, item in enumerate(top_1h, 1):
-            msg_1h += f"*{i}. `{item['ticker']}`*\n   💵 Precio: `${item['price']:,.2f}`\n   📉 RSI: `{item['rsi']:.1f}`\n\n"
+            msg_1h += (
+                f"*{i}. `{item['ticker']}`*\n"
+                f"   💵 Precio: `${item['price']:,.2f}`\n"
+                f"   📉 RSI: `{item['rsi']:.1f}`\n"
+                f"   🛡 Soporte / Zona Compra: `~${item['buy_zone']:,.2f}`\n\n"
+            )
         send_telegram_message(msg_1h)
 
     # 4. Alertas de Ruptura EMA 21 con Volumen (Diario y 1 Hora)
